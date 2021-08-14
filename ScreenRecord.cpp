@@ -15,9 +15,32 @@ extern "C" {
 #include "ScreenRecord.h"
 #include "ScreenRecordErrors.h"
 #include <thread>
+#include <iostream>
+#include <stdio.h>
+#include <stdlib.h>
+#include <cctype>
+#include <algorithm>
 
 int collectFrameCnt = 0;
 int encodeFrameCnt = 0;
+
+std::string GetStdoutFromCommand(std::string cmd) {
+
+  std::string data;
+  FILE * stream;
+  const int max_buffer = 256;
+  char buffer[max_buffer];
+  cmd.append(" 2>&1");
+
+  stream = popen(cmd.c_str(), "r");
+
+  if (stream) {
+    while (!feof(stream))
+      if (fgets(buffer, max_buffer, stream) != NULL) data.append(buffer);
+    pclose(stream);
+  }
+  return data;
+}
 
 ScreenRecord::ScreenRecord() :
     fps(30),
@@ -36,6 +59,7 @@ void ScreenRecord::Init() {
     ShowStartMenu();
     filePath = "./output.mp4";
 }
+
 
 void ScreenRecord::Start() {
     if(state == RecordState::NotStarted) {
@@ -73,10 +97,12 @@ int ScreenRecord::OpenVideo() {
     AVInputFormat* ifmt = const_cast<AVInputFormat*>(av_find_input_format("x11grab"));
     AVDictionary* options = nullptr;
     const AVCodec* decoder = nullptr;
+    std::string command = GetStdoutFromCommand("echo $DISPLAY");
     
     av_dict_set(&options, "framerate", std::to_string(fps).c_str(), 0);
-
-    if(avformat_open_input(&vFmtCtx, ":1", ifmt, &options) != 0) {
+    //pulisco la stringa dagli spazi
+    command.erase(std::remove_if(command.begin(), command.end(), ::isspace), command.end());
+    if(avformat_open_input(&vFmtCtx, command.c_str(), ifmt, &options) != 0) {
         std::cout << "Can't open video input stream" << std::endl;
         return AVFORMAT_OPEN_INPUT_ERROR;
     }
@@ -535,3 +561,4 @@ void ScreenRecord::SetFinished() {
 bool ScreenRecord::GetFinished() {
     return finished;
 }
+
