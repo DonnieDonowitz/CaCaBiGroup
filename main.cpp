@@ -1,18 +1,35 @@
 #include "ScreenRecord.h"
 #ifdef _WIN32
-#include <Windows.h>
+    #include <Windows.h>
 #else
-#include <unistd.h>
+    #include <unistd.h>
 #endif
+
+#define KEY_PAUSE 112
+#define KEY_RESUME 114
+#define KEY_STOP 115
+
 int main(int argc, char* argv[]) {
+    int key;
     ScreenRecord* screenRecord = new ScreenRecord();
     screenRecord->Init();
     screenRecord->Start();
-    int x;
-    std::cin >> x;
-    screenRecord->Stop();
-    while(!screenRecord->GetFinito()) {
+
+    while(key != KEY_STOP){
+        key = getchar();
+
+        switch(key)
+        {
+            case KEY_PAUSE:     screenRecord->Pause(); break;
+            case KEY_RESUME:    screenRecord->Start(); break;
+            case KEY_STOP:      screenRecord->Stop(); break;
+            default: break;
+        }
+    }
+
+    while(!screenRecord->GetFinished()) {
         sleep(0.2);
     }
+    
     return 0;
 }
