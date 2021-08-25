@@ -27,52 +27,47 @@ public:
         NotStarted,
         Started,
         Paused,
-        Stopped,
-        Unknown
+        Stopped
     };
 
     ScreenRecord();
 
-    void Init();
-    void Start();
-    void Pause();
-    void Stop();
-    bool GetFinito();
+    void    Init();
+    void    Start();
+    void    Pause();
+    void    Stop();
+    bool    GetFinished();
 
 private:
-    void ScreenRecordThreadProc();
-    void ScreenRecordAcquireThread();
-    int OpenVideo();
-    int OpenOutput();
-    void SetEncoderParams();
-    void FlushDecoder();
-    void FlushEncoder();
-    void InitBuffer();
-    void Release();
-    void SetFinito();
+    void    ScreenRecordThreadProc();
+    void    ScreenRecordAcquireThread();
+    int     OpenVideo();
+    int     OpenOutput();
+    void    SetEncoderParams();
+    void    FlushDecoder();
+    void    FlushEncoder();
+    void    InitBuffer();
+    void    Release();
+    void    ShowStartMenu();
+    void    SetFinished();
 
 private:
-    std::string m_filePath;
-    int m_width;
-    int m_height;
-    int m_fps;
-    int m_vIndex;
-    int m_vOutIndex;
-    AVFormatContext* m_vFmtCtx;
-    AVFormatContext* m_oFmtCtx;
-    AVCodecContext* m_vDecodeContext;
-    AVCodecContext* m_vEncodeContext;
-    AVDictionary* m_dict;
-    SwsContext* m_swsCtx;
-    AVFifoBuffer* m_vFifoBuf;
-    AVFrame* m_vOutFrame;
-    uint8_t* m_vOutFrameBuf;
-    int m_vOutFrameSize;
-    RecordState m_state;
-    std::condition_variable m_cvNotFull;
-    std::condition_variable m_cvNotEmpty;
-    std::mutex m_mtx;
-    std::condition_variable m_cvNotPause;
-    std::mutex m_mtxPause;
-    bool finito = false;
+    std::string             filePath;
+    int                     width, height, fps, vIndex, vOutIndex, vOutFrameSize;
+    bool                    finished;
+    uint8_t*                vOutFrameBuf;
+    AVFormatContext*        vFmtCtx;
+    AVFormatContext*        oFmtCtx;
+    AVCodecContext*         vDecodeContext;
+    AVCodecContext*         vEncodeContext;
+    AVDictionary*           dict;
+    SwsContext*             swsCtx;
+    AVFifoBuffer*           vFifoBuf;
+    AVFrame*                vOutFrame;
+    RecordState             state;
+    std::condition_variable cvNotFull;
+    std::condition_variable cvNotEmpty;
+    std::condition_variable cvNotPause;
+    std::mutex              mtx;
+    std::mutex              mtxPause;
 };

@@ -1,5 +1,6 @@
 # CaCaBiGroup
 
+## Installazione ffmpeg
 Linee di codice per installare correttamente ffmpeg (cd in cartella di download di ffmpeg)
 ``` 
 ./configure --enable-shared --enable-libx264 --enable-gpl
@@ -7,14 +8,17 @@ make
 sudo make install
 ```
 
-compilazione:
+## Compilazione ed Esecuzione:
 ```
-g++ -g main.cpp ScreenRecord.cpp $(pkg-config --libs libavformat libavcodec libavdevice libavfilter libavutil libswscale libswresample) -lz -lpthread -o main
+bash exec.sh
 ```
+Per mettere in pausa il recording premere `p` ed invio.
 
-esecuzione:
-```
-./main
-```
-per interrompere inserire un carattere qualsiasi e dare Invio, dopo aver configurato il file di output il programma si arresterà.
+
+Per riprendere il recording dopo una pausa premere `r` ed invio.
+
+
+Per stoppare il recording premere `s` ed invio.
+
+
 Il file output.mp4 conterrà il video.

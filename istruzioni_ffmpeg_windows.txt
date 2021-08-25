@@ -1,0 +1,24 @@
+Install mingw & msys
+pacman -S yasm
+pacman -S diffutils
+pacman -S make
+pacman -S development
+
+install x264
+clone source from website
+cd in directory 
+./configure --enable-shared --enable-pic
+make
+make install
+
+!IMPORTANT!
+PKG_CONFIG_PATH="/usr/local/lib/pkgconfig/"
+
+download snapshot of ffmpeg
+cd in directory
+./configure --enable-shared --enable-libx264 --enable-gpl
+make
+make install
+
+cd in cacabi...
+bash exec_win.sh
