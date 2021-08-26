@@ -21,4 +21,6 @@ make
 make install
 
 cd in cacabi...
+again 
+PKG_CONFIG_PATH="/usr/local/lib/pkgconfig/"
 bash exec_win.sh
