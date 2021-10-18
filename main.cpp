@@ -12,7 +12,7 @@
 int main(int argc, char* argv[]) {
     int key = 0;
     ScreenRecord* screenRecord = new ScreenRecord();
-    screenRecord->Init(argv[1], (int) strtol(argv[2], NULL, 10), (int) strtol(argv[3], NULL, 10));
+    screenRecord->Init(argv[1], (int) strtol(argv[2], NULL, 10), (int) strtol(argv[3], NULL, 10), argv[4], argv[5]);
     screenRecord->Start();
 
     while(key != KEY_STOP){

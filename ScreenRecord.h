@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <iostream>
 
 #ifdef	__cplusplus
 extern "C"
@@ -39,7 +40,7 @@ private:
     };
 public:
     ScreenRecord();
-    void Init(std::string path, int width, int height);
+    void Init(std::string path, int width, int height, std::string video, std::string audio);
     bool isDone;
     void Start();
     void Pause();
@@ -64,6 +65,8 @@ private:
 
 private:
     std::string                 m_filePath;
+    std::string                 m_audioDevice;
+    std::string                 m_videoDevice;
     int                         m_width;
     int                         m_height;
     int                         m_fps;

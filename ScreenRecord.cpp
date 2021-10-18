@@ -19,6 +19,8 @@
 #include "ScreenRecord.h"
 #include <thread>
 #include <fstream>
+#include <signal.h>
+#include <unistd.h>
 
 #ifdef _WIN32
     #include <dshow.h>
@@ -43,7 +45,7 @@ ScreenRecord::ScreenRecord() :
 {
 }
 
-void ScreenRecord::Init(std::string path, int width, int height)
+void ScreenRecord::Init(std::string path, int width, int height, std::string video, std::string audio)
 {
     isDone = false;
     m_filePath = path;
@@ -51,6 +53,8 @@ void ScreenRecord::Init(std::string path, int width, int height)
     m_height = height;
     m_fps = 30;
     m_audioBitrate = 128000;
+    m_videoDevice = video;
+    m_audioDevice = audio;
 }
 
 void ScreenRecord::Start()
@@ -71,6 +75,7 @@ void ScreenRecord::Start()
 void ScreenRecord::Pause()
 {
     m_state = RecordState::Paused;
+    std::cout << "Pausing the recording..." << std::endl;
 }
 
 void ScreenRecord::Stop()
@@ -103,7 +108,7 @@ int ScreenRecord::OpenVideo()
         return -1;
     }
 #else
-    if (avformat_open_input(&m_vFmtCtx, ":0", ifmt, &options) != 0)
+    if (avformat_open_input(&m_vFmtCtx, m_videoDevice.c_str(), ifmt, &options) != 0)
     {
         return -1;
     }
@@ -176,9 +181,7 @@ int ScreenRecord::OpenAudio()
 #else
     AVInputFormat *ifmt = av_find_input_format("pulse");
 #endif
-    const char* audioDeviceName = ("alsa_input.usb-Vimicro_corp._AUKEY_PC-LM1E_Camera_AUKEY_PC-LM1E_Audio-02.analog-stereo");
-
-    if (avformat_open_input(&m_aFmtCtx, audioDeviceName, ifmt, nullptr) < 0)
+    if (avformat_open_input(&m_aFmtCtx, m_audioDevice.c_str(), ifmt, nullptr) < 0)
     {
         return -1;
     }
@@ -786,9 +789,7 @@ void ScreenRecord::MuxThreadProc()
     bool done = false;
     int vFrameIndex = 0, aFrameIndex = 0;
 
-    //av_register_all();
     avdevice_register_all();
-    //avcodec_register_all();
 
     if (OpenVideo() < 0)
         return;
@@ -943,6 +944,7 @@ void ScreenRecord::ScreenRecordThreadProc()
     {
         if (m_state == RecordState::Paused)
         {
+            std::cout << "Pausing the video thread..." << std::endl;
             std::unique_lock<std::mutex> lk(m_mtxPause);
             m_cvNotPause.wait(lk, [this] { return m_state != RecordState::Paused; });
         }
@@ -1005,6 +1007,7 @@ void ScreenRecord::SoundRecordThreadProc()
     {
         if (m_state == RecordState::Paused)
         {
+            std::cout << "Pausing the audio thread..." << std::endl;
             std::unique_lock<std::mutex> lk(m_mtxPause);
             m_cvNotPause.wait(lk, [this] { return m_state != RecordState::Paused; });
         }
