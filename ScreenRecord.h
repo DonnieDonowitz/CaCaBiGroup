@@ -2,14 +2,15 @@
 
 #ifdef _WIN32
     #include <Windows.h>
+    #include <initguid.h>
 #endif
 #include <atomic>
 #include <mutex>
 #include <condition_variable>
 #include <cstring>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <iostream>
 
 #ifdef	__cplusplus
@@ -25,7 +26,7 @@ extern "C"
     struct SwsContext;
     struct SwrContext;
 #ifdef __cplusplus
-};
+}
 #endif
 
 class ScreenRecord
@@ -36,11 +37,11 @@ private:
         Started,
         Paused,
         Stopped,
-        Unknown,
+        UnknownState [[maybe_unused]],
     };
 public:
     ScreenRecord();
-    void Init(std::string path, int width, int height, std::string video, std::string audio);
+    void Init(std::string path, int width, int height, std::string video, const std::string& audio);
     bool isDone;
     void Start();
     void Pause();
@@ -53,9 +54,10 @@ private:
     int OpenVideo();
     int OpenAudio();
     int OpenOutput();
-    std::string GetSpeakerDeviceName();
-    std::string GetMicrophoneDeviceName();
-    AVFrame* AllocAudioFrame(AVCodecContext* c, int nbSamples);
+
+    [[maybe_unused]] static std::string GetSpeakerDeviceName();
+    static std::string GetMicrophoneDeviceName();
+    static AVFrame* AllocAudioFrame(AVCodecContext* c, int nbSamples);
     void InitVideoBuffer();
     void InitAudioBuffer();
     void FlushVideoDecoder();
@@ -73,8 +75,8 @@ private:
     int                         m_audioBitrate;
     int                         m_vIndex;       
     int                         m_aIndex;       
-    int                         m_vOutIndex;   
-    int                         m_aOutIndex;    
+    int                         m_vOutIndex;
+    int                         m_aOutIndex;
     AVFormatContext*            m_vFmtCtx;
     AVFormatContext*            m_aFmtCtx;
     AVFormatContext*            m_oFmtCtx;
