@@ -497,7 +497,8 @@ std::string ScreenRecord::GetMicrophoneDeviceName()
     pEm->Reset();
     ULONG cFetched;
     IMoniker *pM;
-    while (hr = pEm->Next(1, &pM, &cFetched), hr == S_OK)
+    int stopper = 0;
+    while (hr = pEm->Next(1, &pM, &cFetched), hr == S_OK, stopper == 0)
     {
 
         IPropertyBag* pBag = nullptr;
@@ -510,7 +511,7 @@ std::string ScreenRecord::GetMicrophoneDeviceName()
             if (hr == NOERROR)
             {
                 WideCharToMultiByte(CP_ACP, 0, var.bstrVal, -1, sName, 256, "", nullptr);
-                //std::cout << "Microphone Name: " << sName << std::endl;
+                std::cout << "Microphone Name: " << sName << std::endl;
                 capture = std::string(sName);
                 //capture = QString::fromLocal8Bit(sName);
                 SysFreeString(var.bstrVal);
@@ -519,6 +520,7 @@ std::string ScreenRecord::GetMicrophoneDeviceName()
         }
         pM->Release();
         bRet = true;
+        stopper++;
     }
     pCreateDevEnum = nullptr;
     pEm = nullptr;
@@ -793,7 +795,6 @@ void ScreenRecord::FlushEncoders()
                 return;
             }
             pkt->stream_index = m_aOutIndex;
-            //将pts从编码层的timebase转成复用层的timebase
             av_packet_rescale_ts(pkt, m_aEncodeCtx->time_base, m_oFmtCtx->streams[m_aOutIndex]->time_base);
             m_aCurPts = pkt->pts;
             std::cout << "m_aCurPts: " << m_aCurPts << std::endl;
@@ -1037,6 +1038,7 @@ void ScreenRecord::MuxThreadProc()
     }
     Release();
     std::cout << "parent thread exit" << std::endl;
+    isDone = true;
 }
 
 void ScreenRecord::ScreenRecordThreadProc()
