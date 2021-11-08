@@ -2,14 +2,16 @@
 
 #ifdef _WIN32
     #include <Windows.h>
+    #include <initguid.h>
 #endif
+
 #include <atomic>
 #include <mutex>
 #include <condition_variable>
 #include <cstring>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <iostream>
 
 #ifdef	__cplusplus
@@ -36,7 +38,6 @@ private:
         Started,
         Paused,
         Stopped,
-        Unknown,
     };
 public:
     ScreenRecord();
@@ -53,7 +54,6 @@ private:
     int OpenVideo();
     int OpenAudio();
     int OpenOutput();
-    std::string GetSpeakerDeviceName();
     std::string GetMicrophoneDeviceName();
     AVFrame* AllocAudioFrame(AVCodecContext* c, int nbSamples);
     void InitVideoBuffer();
