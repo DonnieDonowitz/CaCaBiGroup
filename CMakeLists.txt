@@ -1,5 +1,5 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 3.13)
-PROJECT(CaCaBiGroup)
+PROJECT(Screen-Audio-Capture-FFMPEG)
 SET(CMAKE_CXX_STANDARD 17)
 set(CMAKE_FIND_DEBUG_MODE 1)
 
@@ -9,7 +9,7 @@ include_directories(./include/)
 
 link_directories(./lib/)
 
-set(SOURCES main.cpp ScreenRecord.cpp)
+set(SOURCES main.cpp ScreenAudioCapture.cpp ListAVDevices.cpp)
 
 ADD_EXECUTABLE(main ${SOURCES})
 
@@ -24,7 +24,3 @@ target_link_libraries(
         swresample
         swscale
 )
-
-
-
-
