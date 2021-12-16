@@ -211,10 +211,10 @@ void ScreenAudioCapture::OpenVideo()
     //av_dict_set(&options, "draw_mouse", "0", 0);
     av_dict_set(&options, "framerate", "30", 0);
     av_dict_set(&options, "show_region", "1", 0);
-    /* av_dict_set(&options, "video_size", std::to_string(width).append("x").append(std::to_string(height)).c_str(), 0);
+    av_dict_set(&options, "video_size", std::to_string(width).append("x").append(std::to_string(height)).c_str(), 0);
     av_dict_set(&options, "offset_x", std::to_string(widthOffset).c_str(), 0);
-    av_dict_set(&options, "offset_y", std::to_string(heightOffset).c_str(), 0); */
-    av_dict_set(&options, "crop", "w=100:h=100:x=12:y=34", 0);
+    av_dict_set(&options, "offset_y", std::to_string(heightOffset).c_str(), 0);
+    //av_dict_set(&options, "crop", "w=100:h=100:x=12:y=34", 0);
 
     videoInFormatCtx = nullptr;
 #ifdef __APPLE__
@@ -349,22 +349,30 @@ void ScreenAudioCapture::OpenOutput()
         videoOutCodecCtx = avcodec_alloc_context3(nullptr);
         videoOutCodecCtx->width = width;
         videoOutCodecCtx->height = height;
-        videoOutCodecCtx->codec_type = AVMEDIA_TYPE_VIDEO;
+        /*videoOutCodecCtx->codec_type = AVMEDIA_TYPE_VIDEO;
         videoOutCodecCtx->time_base.num = 1;
-        videoOutCodecCtx->time_base.den = 30;
+        videoOutCodecCtx->time_base.den = 60;
         videoOutCodecCtx->pix_fmt = AV_PIX_FMT_YUV420P;
         videoOutCodecCtx->codec_id = AV_CODEC_ID_H264;
         videoOutCodecCtx->bit_rate = 800 * 1000;
         videoOutCodecCtx->rc_max_rate = 800 * 1000;
         videoOutCodecCtx->rc_buffer_size = 500 * 1000;
-        videoOutCodecCtx->gop_size = 30;
-        videoOutCodecCtx->max_b_frames = 1;
+        videoOutCodecCtx->gop_size = 50;
+        videoOutCodecCtx->max_b_frames = 0;
         videoOutCodecCtx->qmin = 10;
         videoOutCodecCtx->qmax = 31;
         videoOutCodecCtx->max_qdiff = 4;
         videoOutCodecCtx->me_range = 16;
         videoOutCodecCtx->max_qdiff = 4;
-        videoOutCodecCtx->qcompress = 0.6;
+        videoOutCodecCtx->qcompress = 0.6;*/
+        videoOutCodecCtx->codec_id = AV_CODEC_ID_MPEG4;
+        videoOutCodecCtx->codec_type = AVMEDIA_TYPE_VIDEO;
+        videoOutCodecCtx->pix_fmt = AV_PIX_FMT_YUV420P;
+        videoOutCodecCtx->bit_rate = 10000000;
+        videoOutCodecCtx->gop_size = 50;
+        videoOutCodecCtx->max_b_frames = 0;
+        videoOutCodecCtx->time_base.num = 1;
+        videoOutCodecCtx->time_base.den = 30;
         auto *videoOutCodec = const_cast<AVCodec *>(avcodec_find_encoder(videoOutCodecCtx->codec_id));
         if (!videoOutCodec)
         {
