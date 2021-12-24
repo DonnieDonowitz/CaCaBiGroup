@@ -1,3 +1,0 @@
-C:/Users/carmo/CLionProjects/CaCaBiGroup/cmake-build-default-mingw/CMakeFiles/edit_cache.dir
-C:/Users/carmo/CLionProjects/CaCaBiGroup/cmake-build-default-mingw/CMakeFiles/main.dir
-C:/Users/carmo/CLionProjects/CaCaBiGroup/cmake-build-default-mingw/CMakeFiles/rebuild_cache.dir
