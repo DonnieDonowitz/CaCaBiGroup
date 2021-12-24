@@ -1,38 +1,79 @@
 #include "ScreenRecord.h"
-#ifdef _WIN32
-    #include <Windows.h>
-#else
-    #include <unistd.h>
-#endif
 
-#define KEY_PAUSE   112
-#define KEY_RESUME  114
-#define KEY_STOP    115
+static std::string toUpperCase(std::string src) {
+    std::string dst = "";
+    for(char const &c: src) {
+        dst += toupper(c);
+    }
+    return dst;
+}
 
-int main(int argc, char* argv[])
+int main(int argc, char** argv)
 {
-    int key = 0;
-    ScreenRecord* screenRecord = new ScreenRecord();
-    screenRecord->Init(argv[1], (int) strtol(argv[2], NULL, 10), (int) strtol(argv[3], NULL, 10), argv[4], argv[5]);
-    screenRecord->Start();
+    std::cout
+    << "======================================================================================================================" << std::endl
+    << "================================================ SCREEN-AUDIO CAPTURE ================================================" << std::endl
+    << "======================================================================================================================" << std::endl << std::endl
+    << "Developed for project of \"Programmazione di Sistema\"" << std::endl
+    << "It allows to record desktop screen (optionally with audio) in customizable size and save output video on specified file" << std::endl
+    << "Authors: Angelo Carmollingo - Matteo Biffoni - Simone Cavallo" << std::endl << std::endl;
 
-    while(key != KEY_STOP){
-        key = getchar();
+    ScreenRecord* capture = new ScreenRecord("out.mp4", argv[1], argv[2]);
 
-        switch(key)
+    capture->SetDimensions(2560, 0, 1440, 0);
+    capture->PrintDimensions();
+
+    try
+    {
+        std::cout << std::endl << std::endl;
+        std::cout << "Type 'start' to start recording, then available commands will be 'pause', 'resume' and 'stop'." << std::endl << std::endl;    
+
+        while(true)
         {
-            case KEY_PAUSE:     screenRecord->Pause();  break;
-            case KEY_RESUME:    screenRecord->Start();  break;
-            case KEY_STOP:      screenRecord->Stop();   while(!screenRecord->isDone);   break;
-            default: break;
+            try
+            {
+                std::string command;
+                std::getline(std::cin, command);
+                std::cout << std::endl;
+                command = toUpperCase(command);
+             
+                if(command == "START")
+                {
+                    capture->Start();
+                }
+                else if(command == "RESUME")
+                {
+                    capture->Resume();
+                }
+                else if(command == "PAUSE")
+                {
+                    capture->Pause();
+                }
+                else if(command == "STOP")
+                {
+                    capture->Stop();
+                    std::cout << "Cleaning up remaining data..." << std::endl << std::endl;
+                    while(!capture->hasFinished());
+                    break;
+                }
+                else
+                {
+                    std::cout << "Invalid command, try again." << std::endl;
+                }
+
+                sleep(2);
+            }
+            catch(std::runtime_error e)
+            {
+                throw std::runtime_error(e.what());
+            }
         }
     }
-
-#ifdef _WIN32
-    Sleep(2000);
-#else
-    sleep(2);
-#endif
+    catch(std::exception& e)
+    {
+        std::cout << "[ERROR]  " << e.what() << std::endl;
+        exit(-1);
+    }
 
     return 0;
 }

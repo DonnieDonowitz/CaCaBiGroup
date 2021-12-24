@@ -1,23 +1,9 @@
 #pragma once
 
-#ifdef _WIN32
-    #include <Windows.h>
-    #include <initguid.h>
-#endif
+#include "ffmpeg.h"
 
-#include <atomic>
-#include <mutex>
-#include <condition_variable>
-#include <cstring>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <iostream>
-
-#ifdef	__cplusplus
 extern "C"
 {
-#endif
     struct AVFormatContext;
     struct AVCodecContext;
     struct AVCodec;
@@ -26,9 +12,8 @@ extern "C"
     struct AVFrame;
     struct SwsContext;
     struct SwrContext;
-#ifdef __cplusplus
+    struct AVInputFormat;
 };
-#endif
 
 class ScreenRecord
 {
@@ -38,69 +23,124 @@ private:
         Started,
         Paused,
         Stopped,
+        Finished,
     };
+
 public:
-    ScreenRecord();
-    void Init(std::string path, int width, int height, std::string video, std::string audio);
-    bool isDone;
+    ScreenRecord(std::string path, std::string video, std::string audio) :
+      fps(30), videoIndex(-1), audioIndex(-1)
+    , videoFormatContext(nullptr), audioFormatContext(nullptr)
+    , outFormatContext(nullptr)
+    , videoDecodeContext(nullptr), audioDecodeContext(nullptr)
+    , videoEncodeContext(nullptr), audioEncodeContext(nullptr)
+    , videoFifoBuffer(nullptr), audioFifoBuffer(nullptr)
+    , swsContext(nullptr), swrContext(nullptr)
+    , state(RecordState::NotStarted)
+    , videoCurrentPts(0), audioCurrentPts(0)
+{
+    av_log_set_level(AV_LOG_ERROR);
+    filePath= path;
+    audioBitrate = 128000;
+    videoDevice = video;
+    audioDevice = audio;
+}
+
     void Start();
     void Pause();
     void Stop();
+    void Resume();
+
+    bool hasFinished()          { return state == RecordState::Finished; }
+
+    bool wasFatal()             { return fatal; }
+
+    void SetDimensions(int w, int wo, int h, int ho)
+    {
+        width = w;
+        height = h;
+        widthOffset = wo;
+        heightOffset = ho;
+    }
+
+    void PrintDimensions()
+    {
+        std::cout << "Width: " << width << std::endl;
+        std::cout << "Width Offset: " << widthOffset << std::endl;
+        std::cout << "Height: " << height << std::endl;
+        std::cout << "Height Offset: " << heightOffset << std::endl;
+    }
 
 private:
-    void MuxThreadProc();
-    void ScreenRecordThreadProc();
-    void SoundRecordThreadProc();
-    int OpenVideo();
-    int OpenAudio();
-    int OpenOutput();
-    std::string GetMicrophoneDeviceName();
-    AVFrame* AllocAudioFrame(AVCodecContext* c, int nbSamples);
-    void InitVideoBuffer();
-    void InitAudioBuffer();
-    void FlushVideoDecoder();
-    void FlushAudioDecoder();
-    void FlushEncoders();
-    void Release();
+    void            MuxThreadProc();
+    void            ScreenRecordThreadProc();
+    void            SoundRecordThreadProc();
+
+    void            OpenVideo();
+    void            OpenAudio();
+    void            OpenOutput();
+    void            LogStatus();
+
+    AVFrame*        AllocAudioFrame(AVCodecContext* c, int nbSamples);
+    void            InitVideoBuffer();
+    void            InitAudioBuffer();
+
+    void            FlushVideoDecoder();
+    void            FlushAudioDecoder();
+    int*            FlushEncoders();
+
+    void            Release();
 
 private:
-    std::string                 m_filePath;
-    std::string                 m_audioDevice;
-    std::string                 m_videoDevice;
-    int                         m_width;
-    int                         m_height;
-    int                         m_fps;
-    int                         m_audioBitrate;
-    int                         m_vIndex;       
-    int                         m_aIndex;       
-    int                         m_vOutIndex;   
-    int                         m_aOutIndex;    
-    AVFormatContext*            m_vFmtCtx;
-    AVFormatContext*            m_aFmtCtx;
-    AVFormatContext*            m_oFmtCtx;
-    AVCodecContext*             m_vDecodeCtx;
-    AVCodecContext*             m_aDecodeCtx;
-    AVCodecContext*             m_vEncodeCtx;
-    AVCodecContext*             m_aEncodeCtx;
-    SwsContext*                 m_swsCtx;
-    SwrContext*                 m_swrCtx;
-    AVFifoBuffer*               m_vFifoBuf;
-    AVAudioFifo*                m_aFifoBuf;
+    std::string                 filePath;
+    std::string                 audioDevice;
+    std::string                 videoDevice;
+    int                         width;
+    int                         height;
+    int                         widthOffset;
+    int                         heightOffset;
+    int                         fps;
+    int                         audioBitrate;
 
-    AVFrame*                    m_vOutFrame;
-    uint8_t*                    m_vOutFrameBuf;
-    int                         m_vOutFrameSize;
+    int                         videoIndex;       
+    int                         audioIndex;       
+    int                         videoOutIndex;   
+    int                         audioOutIndex; 
 
-    int                         m_nbSamples;
-    RecordState                 m_state;
-    std::condition_variable     m_cvNotPause;  
-    std::mutex                  m_mtxPause;
-    std::condition_variable     m_cvVBufNotFull;
-    std::condition_variable     m_cvVBufNotEmpty;
-    std::mutex                  m_mtxVBuf;
-    std::condition_variable     m_cvABufNotFull;
-    std::condition_variable     m_cvABufNotEmpty;
-    std::mutex                  m_mtxABuf;
-    int64_t                     m_vCurPts;
-    int64_t                     m_aCurPts;
+    AVFormatContext*            videoFormatContext;
+    AVFormatContext*            audioFormatContext;
+    AVFormatContext*            outFormatContext;
+
+    AVCodecContext*             videoDecodeContext;
+    AVCodecContext*             audioDecodeContext;
+    AVCodecContext*             videoEncodeContext;
+    AVCodecContext*             audioEncodeContext;
+    SwsContext*                 swsContext;
+    SwrContext*                 swrContext;
+    AVFifoBuffer*               videoFifoBuffer;
+    AVAudioFifo*                audioFifoBuffer;
+    AVInputFormat*              audioInputFormat;
+
+    bool                        fatal;
+
+    AVFrame*                    videoOutFrame;
+    uint8_t*                    videoOutFrameBuffer;
+    int                         videoOutFrameSize;
+
+    int                         numberOfSamples;
+    
+    RecordState                 state;
+
+    std::condition_variable     cvNotPause;  
+    std::mutex                  mutexPause;
+
+    std::condition_variable     cvVideoBufferNotFull;
+    std::condition_variable     cvVideoBufferNotEmpty;
+    std::mutex                  mutexVideoBuffer;
+
+    std::condition_variable     cvAudioBufferNotFull;
+    std::condition_variable     cvAudioBufferNotEmpty;
+    std::mutex                  mutexAudioBuffer;
+
+    int64_t                     videoCurrentPts;
+    int64_t                     audioCurrentPts;
 };
