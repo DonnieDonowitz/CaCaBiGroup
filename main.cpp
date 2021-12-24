@@ -10,17 +10,57 @@ static std::string toUpperCase(std::string src) {
 
 int main(int argc, char** argv)
 {
+    int width, widthOffset, height, heightOffset;
+    char c;
+    bool record;
+    std::string filename;
+    ScreenRecord* capture;
+
     std::cout
     << "======================================================================================================================" << std::endl
     << "================================================ SCREEN-AUDIO CAPTURE ================================================" << std::endl
     << "======================================================================================================================" << std::endl << std::endl
     << "Developed for project of \"Programmazione di Sistema\"" << std::endl
     << "It allows to record desktop screen (optionally with audio) in customizable size and save output video on specified file" << std::endl
-    << "Authors: Angelo Carmollingo - Matteo Biffoni - Simone Cavallo" << std::endl << std::endl;
+    << "Authors: Angelo Marino Carmollingo - Matteo Biffoni - Simone Cavallo" << std::endl << std::endl;
 
-    ScreenRecord* capture = new ScreenRecord("out.mp4", argv[1], argv[2]);
 
-    capture->SetDimensions(2560, 0, 1440, 0);
+   
+    std::cout << "Type the width of the recording: ";
+    std::cin >> width;
+
+    std::cout << "Type the width offset of the recording: ";
+    std::cin >> widthOffset;
+
+    std::cout << "Type the height of the recording: ";
+    std::cin >> height;
+
+    std::cout << "Type the height offset of the recording: ";
+    std::cin >> heightOffset;
+
+    std::cout << "Type the output file name (without .mp4 extension): ";
+    std::cin >> filename;
+
+    std::cout << "Do you want to record audio? (y/n) ";
+    std::cin >> c;
+
+    if(c == 'y' || c == 'n' || c == 'Y' || c == 'N')
+    {
+        if(c == 'y' || c == 'Y')
+        {
+            capture = new ScreenRecord(filename.append(".mp4"), argv[1], argv[2], true);
+        }
+        else
+        {
+            capture = new ScreenRecord(filename.append(".mp4"), argv[1], argv[2], false);
+        }
+    } 
+    else
+    {
+        std::cout << "Wrong input." << std::endl;
+    }
+
+    capture->SetDimensions(width, widthOffset, height, heightOffset);
     capture->PrintDimensions();
 
     try

@@ -31,7 +31,10 @@ void ScreenRecord::Resume()
 {
     if (state == RecordState::Paused)
     {
-        avformat_open_input(&audioFormatContext, audioDevice.c_str(), audioInputFormat, nullptr);
+        if(recordAudio)
+        {
+            avformat_open_input(&audioFormatContext, audioDevice.c_str(), audioInputFormat, nullptr);
+        }
 
         state = RecordState::Started;
         LOG("Resuming the recording...");
@@ -70,7 +73,10 @@ void ScreenRecord::Pause()
         }
     }
 
-    avformat_close_input(&audioFormatContext);
+    if(recordAudio)
+    {
+        avformat_close_input(&audioFormatContext);
+    }
 
     state = RecordState::Paused;
     LOG("Pausing the recording...");
@@ -93,7 +99,11 @@ void ScreenRecord::Stop()
 
     if (state == RecordState::Paused)
     {
-        avformat_open_input(&audioFormatContext, audioDevice.c_str(), audioInputFormat, nullptr);
+        if(recordAudio)
+        {
+            avformat_open_input(&audioFormatContext, audioDevice.c_str(), audioInputFormat, nullptr);
+        }
+
         cvNotPause.notify_all();
     }
 
@@ -105,17 +115,26 @@ void ScreenRecord::LogStatus()
 {
     std::cout
     << "====================== INITIALIZATION STATUS ======================" << std::endl
-    << "Output file: " << filePath << std::endl
-    << "Audio device name: " << audioDevice << std::endl
-    << "Audio input format context bit rate: " << audioFormatContext->bit_rate << std::endl
-    << "Audio input codec context sample rate: " << audioDecodeContext->sample_rate << std::endl
-    << "Audio input codec context time base: AVRational { " << audioDecodeContext->time_base.num << ", " << audioDecodeContext->time_base.den << " }" << std::endl
-    << "Video input codec context dimensions: " << videoDecodeContext->width << " - " << videoDecodeContext->height << std::endl
-    << "Output format context probe size: " << outFormatContext->probesize << std::endl
-    << "Audio output codec context sample rate: " << audioEncodeContext->sample_rate << std::endl
-    << "Audio output codec context time base: AVRational { " << audioEncodeContext->time_base.num << ", " << audioEncodeContext->time_base.den << " }" << std::endl
-    << "Audio output codec context frame size: " << audioEncodeContext->frame_size << std::endl
-    << "Video output codec context time base: AVRational { " << videoEncodeContext->time_base.num << ", " << videoEncodeContext->time_base.den << " }" << std::endl
+    << "Output file: " << filePath << std::endl;
+    if(recordAudio)
+    {
+        std::cout << "Audio device name: " << audioDevice << std::endl
+        << "Audio input format context bit rate: " << audioFormatContext->bit_rate << std::endl
+        << "Audio input codec context sample rate: " << audioDecodeContext->sample_rate << std::endl
+        << "Audio input codec context time base: AVRational { " << audioDecodeContext->time_base.num << ", " << audioDecodeContext->time_base.den << " }" << std::endl;
+    }
+    
+    std::cout << "Video input codec context dimensions: " << videoDecodeContext->width << " - " << videoDecodeContext->height << std::endl
+    << "Output format context probe size: " << outFormatContext->probesize << std::endl;
+
+    if(recordAudio)
+    {
+        std::cout << "Audio output codec context sample rate: " << audioEncodeContext->sample_rate << std::endl
+        << "Audio output codec context time base: AVRational { " << audioEncodeContext->time_base.num << ", " << audioEncodeContext->time_base.den << " }" << std::endl
+        << "Audio output codec context frame size: " << audioEncodeContext->frame_size << std::endl;
+    }
+  
+    std::cout << "Video output codec context time base: AVRational { " << videoEncodeContext->time_base.num << ", " << videoEncodeContext->time_base.den << " }" << std::endl
     << "Video output codec context dimensions: " << videoEncodeContext->width << " - " << videoEncodeContext->height
     << std::endl << std::endl << std::endl;
 }
@@ -128,10 +147,8 @@ void ScreenRecord::OpenVideo()
 
     av_dict_set(&options, "framerate", std::to_string(fps).c_str(), 0);
     av_dict_set(&options, "video_size", std::to_string(width).append("x").append(std::to_string(height)).c_str(), 0);
-    av_dict_set(&options, "offset_x", std::to_string(widthOffset).c_str(), 0);
-    av_dict_set(&options, "offset_y", std::to_string(heightOffset).c_str(), 0);
 
-    if (avformat_open_input(&videoFormatContext, videoDevice.c_str(), ifmt, &options) != 0)
+    if (avformat_open_input(&videoFormatContext, videoDevice.append(".0+").append(std::to_string(widthOffset)).append(",").append(std::to_string(heightOffset)).c_str(), ifmt, &options) != 0)
     {
         FATAL("Can't open video input format.");
     }
@@ -310,104 +327,108 @@ void ScreenRecord::OpenOutput()
         }
     }
 
-    if (audioFormatContext->streams[audioIndex]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO)
+    if(recordAudio)
     {
-        aStream = avformat_new_stream(outFormatContext, NULL);
-
-        if (!aStream)
+        if (audioFormatContext->streams[audioIndex]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO)
         {
-            FATAL("Can't istantiate a new audio stream.");
-        }
+            aStream = avformat_new_stream(outFormatContext, NULL);
 
-        audioOutIndex = aStream->index;
-
-        AVCodec *encoder = const_cast<AVCodec*>(avcodec_find_encoder(outFormatContext->oformat->audio_codec));
-
-        if (!encoder)
-        {
-            FATAL("Can't find audio encoder.");
-        }
-
-        audioEncodeContext = avcodec_alloc_context3(encoder);
-
-        if (videoEncodeContext == nullptr)
-        {
-            FATAL("Can't allocate audio encode context.");
-        }
-
-        audioEncodeContext->sample_fmt = encoder->sample_fmts ? encoder->sample_fmts[0] : AV_SAMPLE_FMT_FLTP;
-        audioEncodeContext->bit_rate = audioBitrate;
-        audioEncodeContext->sample_rate = 44100;
-
-        if (encoder->supported_samplerates)
-        {
-            audioEncodeContext->sample_rate = encoder->supported_samplerates[0];
-
-            for (int i = 0; encoder->supported_samplerates[i]; ++i)
+            if (!aStream)
             {
-                if (encoder->supported_samplerates[i] == 44100)
+                FATAL("Can't istantiate a new audio stream.");
+            }
+
+            audioOutIndex = aStream->index;
+
+            AVCodec *encoder = const_cast<AVCodec*>(avcodec_find_encoder(outFormatContext->oformat->audio_codec));
+
+            if (!encoder)
+            {
+                FATAL("Can't find audio encoder.");
+            }
+
+            audioEncodeContext = avcodec_alloc_context3(encoder);
+
+            if (videoEncodeContext == nullptr)
+            {
+                FATAL("Can't allocate audio encode context.");
+            }
+
+            audioEncodeContext->sample_fmt = encoder->sample_fmts ? encoder->sample_fmts[0] : AV_SAMPLE_FMT_FLTP;
+            audioEncodeContext->bit_rate = audioBitrate;
+            audioEncodeContext->sample_rate = 44100;
+
+            if (encoder->supported_samplerates)
+            {
+                audioEncodeContext->sample_rate = encoder->supported_samplerates[0];
+
+                for (int i = 0; encoder->supported_samplerates[i]; ++i)
                 {
-                    audioEncodeContext->sample_rate = 44100;
+                    if (encoder->supported_samplerates[i] == 44100)
+                    {
+                        audioEncodeContext->sample_rate = 44100;
+                    }
                 }
             }
-        }
 
-        audioEncodeContext->channels = av_get_channel_layout_nb_channels(audioEncodeContext->channel_layout);
-        audioEncodeContext->channel_layout = AV_CH_LAYOUT_STEREO;
+            audioEncodeContext->channels = av_get_channel_layout_nb_channels(audioEncodeContext->channel_layout);
+            audioEncodeContext->channel_layout = AV_CH_LAYOUT_STEREO;
 
-        if (encoder->channel_layouts)
-        {
-            audioEncodeContext->channel_layout = encoder->channel_layouts[0];
-
-            for (int i = 0; encoder->channel_layouts[i]; ++i)
+            if (encoder->channel_layouts)
             {
-                if (encoder->channel_layouts[i] == AV_CH_LAYOUT_STEREO)
+                audioEncodeContext->channel_layout = encoder->channel_layouts[0];
+
+                for (int i = 0; encoder->channel_layouts[i]; ++i)
                 {
-                    audioEncodeContext->channel_layout = AV_CH_LAYOUT_STEREO;
+                    if (encoder->channel_layouts[i] == AV_CH_LAYOUT_STEREO)
+                    {
+                        audioEncodeContext->channel_layout = AV_CH_LAYOUT_STEREO;
+                    }
                 }
             }
-        }
 
-        audioEncodeContext->channels = av_get_channel_layout_nb_channels(audioEncodeContext->channel_layout);
-        aStream->time_base = AVRational{ 1, audioEncodeContext->sample_rate };
+            audioEncodeContext->channels = av_get_channel_layout_nb_channels(audioEncodeContext->channel_layout);
+            aStream->time_base = AVRational{ 1, audioEncodeContext->sample_rate };
 
-        audioEncodeContext->codec_tag = 0;
-        audioEncodeContext->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+            audioEncodeContext->codec_tag = 0;
+            audioEncodeContext->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
 
-        if (!check_sample_fmt(encoder, audioEncodeContext->sample_fmt))
-        {
-            FATAL("Audio encoder sample format not supported by the audio encode context.");
-        }
+            if (!check_sample_fmt(encoder, audioEncodeContext->sample_fmt))
+            {
+                FATAL("Audio encoder sample format not supported by the audio encode context.");
+            }
 
-        if (avcodec_open2(audioEncodeContext, encoder, 0) < 0)
-        {
-            FATAL("Can't open audio encode context");
-        }
+            if (avcodec_open2(audioEncodeContext, encoder, 0) < 0)
+            {
+                FATAL("Can't open audio encode context");
+            }
 
-        if (avcodec_parameters_from_context(aStream->codecpar, audioEncodeContext) < 0)
-        {
-            FATAL("Can't convert parameters from audio encode context.");
-        }
+            if (avcodec_parameters_from_context(aStream->codecpar, audioEncodeContext) < 0)
+            {
+                FATAL("Can't convert parameters from audio encode context.");
+            }
 
-        swrContext = swr_alloc();
-        if (!swrContext)
-        {
-            FATAL("Can't allocate swr context.");
-        }
+            swrContext = swr_alloc();
+            if (!swrContext)
+            {
+                FATAL("Can't allocate swr context.");
+            }
 
-        av_opt_set_int(swrContext, "in_channel_count", audioDecodeContext->channels, 0);	
-        av_opt_set_int(swrContext, "in_sample_rate", audioDecodeContext->sample_rate, 0);	
-        av_opt_set_sample_fmt(swrContext, "in_sample_fmt", audioDecodeContext->sample_fmt, 0);
+            av_opt_set_int(swrContext, "in_channel_count", audioDecodeContext->channels, 0);	
+            av_opt_set_int(swrContext, "in_sample_rate", audioDecodeContext->sample_rate, 0);	
+            av_opt_set_sample_fmt(swrContext, "in_sample_fmt", audioDecodeContext->sample_fmt, 0);
 
-        av_opt_set_int(swrContext, "out_channel_count", audioEncodeContext->channels, 0);	
-        av_opt_set_int(swrContext, "out_sample_rate", audioEncodeContext->sample_rate, 0);
-        av_opt_set_sample_fmt(swrContext, "out_sample_fmt", audioEncodeContext->sample_fmt, 0);	
+            av_opt_set_int(swrContext, "out_channel_count", audioEncodeContext->channels, 0);	
+            av_opt_set_int(swrContext, "out_sample_rate", audioEncodeContext->sample_rate, 0);
+            av_opt_set_sample_fmt(swrContext, "out_sample_fmt", audioEncodeContext->sample_fmt, 0);	
 
-        if (swr_init(swrContext) < 0)
-        {
-            FATAL("Can't initialise swr context.");
+            if (swr_init(swrContext) < 0)
+            {
+                FATAL("Can't initialise swr context.");
+            }
         }
     }
+    
 
     if (!(outFormatContext->oformat->flags & AVFMT_NOFILE))
     {
@@ -624,7 +645,59 @@ int* ScreenRecord::FlushEncoders()
         AVPacket* pkt = av_packet_alloc();
         av_init_packet(pkt);
 
-        if (av_compare_ts(videoCurrentPts, outFormatContext->streams[videoOutIndex]->time_base, audioCurrentPts, outFormatContext->streams[audioOutIndex]->time_base) <= 0)
+        if (recordAudio && av_compare_ts(audioCurrentPts, outFormatContext->streams[audioOutIndex]->time_base, videoCurrentPts, outFormatContext->streams[videoOutIndex]->time_base) <= 0)
+        {
+            if (!aBeginFlush)
+            {
+                aBeginFlush = true;
+                ret = avcodec_send_frame(audioEncodeContext, NULL);
+
+                if (ret != 0)
+                {
+                    FATAL("Can't send frame to the audio encode context.");
+                    return nullptr;
+                }
+            }
+            ret = avcodec_receive_packet(audioEncodeContext, pkt);
+
+            if (ret < 0)
+            {
+                av_packet_unref(pkt);
+                if (ret == AVERROR(EAGAIN))
+                {
+                    LOG("AVERROR(EAGAIN)");
+                    continue;
+                }
+                else if (ret == AVERROR_EOF)
+                {
+                    if (!(--nFlush)) 
+                    {
+                        break;
+                    }
+
+                    audioCurrentPts = INT_MAX;
+
+                    LOG("AVERROR_EOF");
+                    continue;
+                }
+
+                FATAL("Can't receive packet from the audio encode context.");
+                return nullptr;
+            }
+
+            pkt->stream_index = audioOutIndex;
+
+            av_packet_rescale_ts(pkt, audioEncodeContext->time_base, outFormatContext->streams[audioOutIndex]->time_base);
+            audioCurrentPts = pkt->pts;
+
+            av_interleaved_write_frame(outFormatContext, pkt);
+
+            totalFrameWritten++;
+            flushedAudioCount++;
+            
+            av_packet_free(&pkt);
+        }
+        else
         {
             if (!vBeginFlush)
             {
@@ -678,58 +751,6 @@ int* ScreenRecord::FlushEncoders()
 
             av_packet_free(&pkt);
         }
-        else
-        {
-            if (!aBeginFlush)
-            {
-                aBeginFlush = true;
-                ret = avcodec_send_frame(audioEncodeContext, NULL);
-
-                if (ret != 0)
-                {
-                    FATAL("Can't send frame to the audio encode context.");
-                    return nullptr;
-                }
-            }
-            ret = avcodec_receive_packet(audioEncodeContext, pkt);
-
-            if (ret < 0)
-            {
-                av_packet_unref(pkt);
-                if (ret == AVERROR(EAGAIN))
-                {
-                    LOG("AVERROR(EAGAIN)");
-                    continue;
-                }
-                else if (ret == AVERROR_EOF)
-                {
-                    if (!(--nFlush)) 
-                    {
-                        break;
-                    }
-
-                    audioCurrentPts = INT_MAX;
-
-                    LOG("AVERROR_EOF");
-                    continue;
-                }
-
-                FATAL("Can't receive packet from the audio encode context.");
-                return nullptr;
-            }
-
-            pkt->stream_index = audioOutIndex;
-
-            av_packet_rescale_ts(pkt, audioEncodeContext->time_base, outFormatContext->streams[audioOutIndex]->time_base);
-            audioCurrentPts = pkt->pts;
-
-            av_interleaved_write_frame(outFormatContext, pkt);
-
-            totalFrameWritten++;
-            flushedAudioCount++;
-            
-            av_packet_free(&pkt);
-        }
     }
 
     std::cout << "Finished flushing encoders." << std::endl;
@@ -749,11 +770,13 @@ void ScreenRecord::Release()
         av_frame_free(&videoOutFrame);
         videoOutFrame = nullptr;
     }
+    
     if (videoOutFrameBuffer)
     {
         av_free(videoOutFrameBuffer);
         videoOutFrameBuffer = nullptr;
     }
+    
     if (outFormatContext)
     {
         avio_close(outFormatContext->pb);
@@ -761,37 +784,43 @@ void ScreenRecord::Release()
         outFormatContext = nullptr;
     }
 
-    if (audioDecodeContext)
+    if (recordAudio && audioDecodeContext)
     {
         avcodec_free_context(&audioDecodeContext);
         audioDecodeContext = nullptr;
     }
+    
     if (videoEncodeContext)
     {
         avcodec_free_context(&videoEncodeContext);
         videoEncodeContext = nullptr;
     }
-    if (audioEncodeContext)
+
+    if (recordAudio && audioEncodeContext)
     {
         avcodec_free_context(&audioEncodeContext);
         audioEncodeContext = nullptr;
     }
+
     if (videoFifoBuffer)
     {
         av_fifo_freep(&videoFifoBuffer);
         videoFifoBuffer = nullptr;
     }
-    if (audioFifoBuffer)
+
+    if (recordAudio && audioFifoBuffer)
     {
         av_audio_fifo_free(audioFifoBuffer);
         audioFifoBuffer = nullptr;
     }
+
     if (videoFormatContext)
     {
         avformat_close_input(&videoFormatContext);
         videoFormatContext = nullptr;
     }
-    if (audioFormatContext)
+
+    if (recordAudio && audioFormatContext)
     {
         avformat_close_input(&audioFormatContext);
         audioFormatContext = nullptr;
@@ -807,18 +836,29 @@ void ScreenRecord::MuxThreadProc()
     avdevice_register_all();
 
     OpenVideo();
-    OpenAudio();
-    OpenOutput();
 
+    if(recordAudio) 
+    {
+        OpenAudio();
+    }
+
+    OpenOutput();
     InitVideoBuffer();
-    InitAudioBuffer();
+    if(recordAudio)
+    {
+        InitAudioBuffer();
+    }
 
     LogStatus();
 
     std::thread screenRecord(&ScreenRecord::ScreenRecordThreadProc, this);
-    std::thread soundRecord(&ScreenRecord::SoundRecordThreadProc, this);
     screenRecord.detach();
-    soundRecord.detach();
+    
+    if(recordAudio) 
+    {
+        std::thread soundRecord(&ScreenRecord::SoundRecordThreadProc, this);
+        soundRecord.detach();
+    }
 
     while (1)
     {
@@ -827,78 +867,25 @@ void ScreenRecord::MuxThreadProc()
             done = true;
         }
 
-        if (done)
+        if (recordAudio && done)
         {
             std::unique_lock<std::mutex> vBufLock(mutexVideoBuffer, std::defer_lock);
             std::unique_lock<std::mutex> aBufLock(mutexAudioBuffer, std::defer_lock);
+
             std::lock(vBufLock, aBufLock);
 
             if (av_fifo_size(videoFifoBuffer) < videoOutFrameSize && av_audio_fifo_size(audioFifoBuffer) < numberOfSamples)
             {
-                LOG("Video fifo buffer or audio fifo buffer with size smaller than expected.");
+                LOG("Video fifo buffer and audio fifo buffer with size smaller than expected.");
                 break;
             }
-        }
-
-        if (av_compare_ts(videoCurrentPts, outFormatContext->streams[videoOutIndex]->time_base, audioCurrentPts, outFormatContext->streams[audioOutIndex]->time_base) <= 0)
+        } 
+        else if(done)
         {
-            if (done)
-            {
-                std::lock_guard<std::mutex> lk(mutexVideoBuffer);
-
-                if (av_fifo_size(videoFifoBuffer) < videoOutFrameSize)
-                {
-                    videoCurrentPts = INT_MAX;
-                    LOG("Video fifo buffer with size smaller than expected.");
-                    continue;
-                }
-            }
-            else
-            {
-                std::unique_lock<std::mutex> lk(mutexVideoBuffer);
-                cvVideoBufferNotEmpty.wait(lk, [this] { return av_fifo_size(this->videoFifoBuffer) >= this->videoOutFrameSize; });
-            }
-
-            av_fifo_generic_read(videoFifoBuffer, videoOutFrameBuffer, videoOutFrameSize, nullptr);
-            cvVideoBufferNotFull.notify_one();
-
-            videoOutFrame->pts = vFrameIndex++;
-            videoOutFrame->format = videoEncodeContext->pix_fmt;
-            videoOutFrame->width = videoEncodeContext->width;
-            videoOutFrame->height = videoEncodeContext->height;
-
-            AVPacket* pkt = av_packet_alloc();
-            av_init_packet(pkt);
-
-            ret = avcodec_send_frame(videoEncodeContext, videoOutFrame);
-
-            if (ret != 0)
-            {
-                av_packet_unref(pkt);
-                continue;
-            }
-
-            ret = avcodec_receive_packet(videoEncodeContext, pkt);
-            
-            if (ret != 0)
-            {
-                av_packet_unref(pkt);
-                continue;
-            }
-
-            pkt->stream_index = videoOutIndex;
-
-            av_packet_rescale_ts(pkt, videoEncodeContext->time_base, outFormatContext->streams[videoOutIndex]->time_base);
-            videoCurrentPts = pkt->pts;
-
-            if(!av_interleaved_write_frame(outFormatContext, pkt))
-            {
-                continue;
-            }
-
-            av_packet_free(&pkt);
+            break;
         }
-        else
+
+        if (recordAudio && av_compare_ts(audioCurrentPts, outFormatContext->streams[audioOutIndex]->time_base, videoCurrentPts, outFormatContext->streams[videoOutIndex]->time_base) <= 0)
         {
             if (done)
             {
@@ -906,7 +893,6 @@ void ScreenRecord::MuxThreadProc()
                 if (av_audio_fifo_size(audioFifoBuffer) < numberOfSamples)
                 { 
                     audioCurrentPts = INT_MAX;
-                    LOG("Audio fifo buffer with size smaller than expected.");
                     continue;
                 }
             }
@@ -962,13 +948,74 @@ void ScreenRecord::MuxThreadProc()
             av_frame_free(&aFrame);
             av_packet_free(&pkt);
         }
+        else
+        {
+            if (done)
+            {
+                std::lock_guard<std::mutex> lk(mutexVideoBuffer);
+
+                if (av_fifo_size(videoFifoBuffer) < videoOutFrameSize)
+                {
+                    videoCurrentPts = INT_MAX;
+                    continue;
+                }
+            }
+            else
+            {
+                std::unique_lock<std::mutex> lk(mutexVideoBuffer);
+                cvVideoBufferNotEmpty.wait(lk, [this] { return av_fifo_size(this->videoFifoBuffer) >= this->videoOutFrameSize; });
+            }
+
+            av_fifo_generic_read(videoFifoBuffer, videoOutFrameBuffer, videoOutFrameSize, nullptr);
+            cvVideoBufferNotFull.notify_one();
+
+            videoOutFrame->pts = vFrameIndex++;
+            videoOutFrame->format = videoEncodeContext->pix_fmt;
+            videoOutFrame->width = videoEncodeContext->width;
+            videoOutFrame->height = videoEncodeContext->height;
+
+            AVPacket* pkt = av_packet_alloc();
+            av_init_packet(pkt);
+
+            ret = avcodec_send_frame(videoEncodeContext, videoOutFrame);
+
+            if (ret != 0)
+            {
+                av_packet_unref(pkt);
+                continue;
+            }
+
+            ret = avcodec_receive_packet(videoEncodeContext, pkt);
+            
+            if (ret != 0)
+            {
+                av_packet_unref(pkt);
+                continue;
+            }
+
+            pkt->stream_index = videoOutIndex;
+
+            av_packet_rescale_ts(pkt, videoEncodeContext->time_base, outFormatContext->streams[videoOutIndex]->time_base);
+            videoCurrentPts = pkt->pts;
+
+            if(!av_interleaved_write_frame(outFormatContext, pkt))
+            {
+                continue;
+            }
+
+            av_packet_free(&pkt);
+        }
     }
 
     int* flushed = FlushEncoders();
     
     if(flushed)
     {
-        std::cout << "Total audio frames encoded: " << aFrameIndex + flushed[0] << " (" << flushed[0] << " flushed)." << std::endl;
+        if(recordAudio) 
+        {
+            std::cout << "Total audio frames encoded: " << aFrameIndex + flushed[0] << " (" << flushed[0] << " flushed)." << std::endl;
+        }
+
         std::cout << "Total video frames encoded: " << vFrameIndex + flushed[1] << " (" << flushed[1] << " flushed)." << std::endl;
 
         delete[] flushed;
@@ -977,7 +1024,15 @@ void ScreenRecord::MuxThreadProc()
     av_write_trailer(outFormatContext);
 
     Release();
-    std::cout << "Done muxing audio and video and relative cleaning." << std::endl << std::endl;
+
+    if(recordAudio)
+    {
+        std::cout << "Done muxing audio and video and relative cleaning." << std::endl << std::endl;
+    }
+    else
+    {
+        std::cout << "Done muxing video and relative cleaning." << std::endl << std::endl;
+    }
     state = RecordState::Finished;
 }
 

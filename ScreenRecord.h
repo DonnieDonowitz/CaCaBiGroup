@@ -27,7 +27,7 @@ private:
     };
 
 public:
-    ScreenRecord(std::string path, std::string video, std::string audio) :
+    ScreenRecord(std::string path, std::string video, std::string audio, bool isAudioOn) :
       fps(30), videoIndex(-1), audioIndex(-1)
     , videoFormatContext(nullptr), audioFormatContext(nullptr)
     , outFormatContext(nullptr)
@@ -37,13 +37,14 @@ public:
     , swsContext(nullptr), swrContext(nullptr)
     , state(RecordState::NotStarted)
     , videoCurrentPts(0), audioCurrentPts(0)
-{
-    av_log_set_level(AV_LOG_ERROR);
-    filePath= path;
-    audioBitrate = 128000;
-    videoDevice = video;
-    audioDevice = audio;
-}
+    {
+        av_log_set_level(AV_LOG_ERROR);
+        filePath= path;
+        audioBitrate = 128000;
+        videoDevice = video;
+        audioDevice = audio;
+        recordAudio = isAudioOn;
+    }
 
     void Start();
     void Pause();
@@ -121,6 +122,7 @@ private:
     AVInputFormat*              audioInputFormat;
 
     bool                        fatal;
+    bool                        recordAudio;
 
     AVFrame*                    videoOutFrame;
     uint8_t*                    videoOutFrameBuffer;
